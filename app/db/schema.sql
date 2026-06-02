@@ -23,6 +23,22 @@ CREATE INDEX IF NOT EXISTS idx_assets_level     ON assets (level);
 CREATE INDEX IF NOT EXISTS idx_assets_device_id ON assets (device_id);
 CREATE INDEX IF NOT EXISTS idx_assets_site_id   ON assets (site_id);
 
+-- ── Contexto semântico mínimo derivado do Historian ──────────────────────────
+-- Sprint 1B: registro básico de ativos observados em process_readings.
+
+CREATE TABLE IF NOT EXISTS asset_context (
+    asset_id        TEXT        PRIMARY KEY,
+    asset_type      TEXT        NOT NULL,
+    functional_role TEXT        NOT NULL,
+    tags            JSONB       NOT NULL DEFAULT '[]',
+    confidence      DOUBLE PRECISION NOT NULL DEFAULT 0.0,
+    last_seen       TIMESTAMPTZ,
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_asset_context_type ON asset_context (asset_type);
+CREATE INDEX IF NOT EXISTS idx_asset_context_last_seen ON asset_context (last_seen DESC);
+
 -- ── Relações entre ativos (além de parent-child) ──────────────────────────────
 
 CREATE TABLE IF NOT EXISTS asset_relations (

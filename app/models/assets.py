@@ -94,6 +94,17 @@ class Asset(AssetBase):
     model_config = {"from_attributes": True}
 
 
+class AssetContext(BaseModel):
+    asset_id:        str
+    asset_type:      str
+    functional_role: str
+    tags:            list[str] = Field(default_factory=list)
+    confidence:      float
+    last_seen:       datetime | None = None
+
+    model_config = {"from_attributes": True}
+
+
 class AssetTree(Asset):
     children: list["AssetTree"] = Field(default_factory=list)
     relations: list["AssetRelation"] = Field(default_factory=list)
@@ -143,3 +154,6 @@ class DiscoveryResult(BaseModel):
     tags_classified:    int = 0
     sources:            list[str] = Field(default_factory=list)
     errors:             list[str] = Field(default_factory=list)
+
+
+AssetTree.model_rebuild()
