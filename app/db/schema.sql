@@ -79,7 +79,8 @@ VALUES
      {"tag_id":"pm",  "variable":"pressure_upstream",  "unit":"mca","criticality":"high"},
      {"tag_id":"vz",  "variable":"flow",               "unit":"L/s","criticality":"high"},
      {"tag_id":"pos", "variable":"valve_position",     "unit":"%",  "criticality":"medium"},
-     {"tag_id":"sp",  "variable":"setpoint",           "unit":"mca","criticality":"high"}
+     {"tag_id":"sp",  "variable":"setpoint",           "unit":"mca","criticality":"high"},
+     {"variable":"pressure_deviation","op":"sub","operands":["pj","sp"],"unit":"mca","criticality":"high","computed":true}
    ]'::jsonb),
   ('tpl_reservoir', 'reservoir', 'Reservatório',
    'Reservatório de armazenamento de água tratada',
