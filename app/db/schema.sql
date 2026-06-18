@@ -96,6 +96,14 @@ VALUES
      {"tag_id":"status", "variable":"pump_status","unit":"",    "criticality":"critical"},
      {"tag_id":"speed",  "variable":"pump_speed", "unit":"rpm", "criticality":"medium"},
      {"tag_id":"q",      "variable":"flow",       "unit":"L/s", "criticality":"high"}
+   ]'::jsonb),
+  ('tpl_macromedidor', 'macromedidor', 'Macromedidor de Zona',
+   'Medição agregada de zona de pressão: VRPs online, total, pressão jusante média e vazão',
+   '[
+     {"tag_id":"p_jusante_media_mca","variable":"pressure_downstream","unit":"mca","criticality":"high"},
+     {"tag_id":"q_lps",              "variable":"flow",               "unit":"L/s","criticality":"high"},
+     {"tag_id":"n_online",           "variable":"vrps_online",        "unit":"",   "criticality":"medium"},
+     {"tag_id":"n_vrps",             "variable":"vrps_total",         "unit":"",   "criticality":"low"}
    ]'::jsonb)
 ON CONFLICT (template_id) DO NOTHING;
 
