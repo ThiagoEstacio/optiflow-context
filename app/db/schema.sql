@@ -80,6 +80,14 @@ VALUES
      {"tag_id":"vz",  "variable":"flow",               "unit":"L/s","criticality":"high"},
      {"tag_id":"pos", "variable":"valve_position",     "unit":"%",  "criticality":"medium"},
      {"tag_id":"sp",  "variable":"setpoint",           "unit":"mca","criticality":"high"},
+     {"tag_id":"online",         "variable":"status",        "unit":"bool","criticality":"critical"},
+     {"tag_id":"quality_code",   "variable":"data_quality",  "unit":"code","criticality":"critical"},
+     {"tag_id":"alarm_active",   "variable":"alarm",         "unit":"bool","criticality":"critical"},
+     {"tag_id":"alarm_code",     "variable":"alarm_code",    "unit":"code","criticality":"high"},
+     {"tag_id":"alarm_severity", "variable":"alarm_severity","unit":"level","criticality":"high"},
+     {"tag_id":"cmd_status",     "variable":"command_status","unit":"code","criticality":"high"},
+     {"tag_id":"scenario_active","variable":"training_scenario","unit":"bool","criticality":"medium"},
+     {"tag_id":"scenario_code",  "variable":"scenario_code", "unit":"code","criticality":"medium"},
      {"variable":"pressure_deviation","op":"sub","operands":["pj","sp"],"unit":"mca","criticality":"high","computed":true}
    ]'::jsonb),
   ('tpl_reservoir', 'reservoir', 'Reservatório',
@@ -88,7 +96,14 @@ VALUES
      {"tag_id":"h",      "variable":"level",  "unit":"m",  "criticality":"critical"},
      {"tag_id":"q_in",   "variable":"flow",   "unit":"L/s","criticality":"high"},
      {"tag_id":"q_out",  "variable":"flow",   "unit":"L/s","criticality":"high"},
-     {"tag_id":"bombas", "variable":"pump_status","unit":"","criticality":"high"}
+     {"tag_id":"bombas", "variable":"pump_status","unit":"","criticality":"high"},
+     {"tag_id":"quality_code",   "variable":"data_quality",  "unit":"code","criticality":"critical"},
+     {"tag_id":"alarm_active",   "variable":"alarm",         "unit":"bool","criticality":"critical"},
+     {"tag_id":"alarm_code",     "variable":"alarm_code",    "unit":"code","criticality":"high"},
+     {"tag_id":"alarm_severity", "variable":"alarm_severity","unit":"level","criticality":"high"},
+     {"tag_id":"cmd_status",     "variable":"command_status","unit":"code","criticality":"high"},
+     {"tag_id":"scenario_active","variable":"training_scenario","unit":"bool","criticality":"medium"},
+     {"tag_id":"scenario_code",  "variable":"scenario_code", "unit":"code","criticality":"medium"}
    ]'::jsonb),
   ('tpl_pump_station', 'pump_station', 'Estação de Bombeamento',
    'Conjunto de bombas para adução ou recalque',
@@ -105,7 +120,11 @@ VALUES
      {"tag_id":"n_online",           "variable":"vrps_online",        "unit":"",   "criticality":"medium"},
      {"tag_id":"n_vrps",             "variable":"vrps_total",         "unit":"",   "criticality":"low"}
    ]'::jsonb)
-ON CONFLICT (template_id) DO NOTHING;
+ON CONFLICT (template_id) DO UPDATE SET
+  name = EXCLUDED.name,
+  description = EXCLUDED.description,
+  attributes = EXCLUDED.attributes,
+  updated_at = now();
 
 -- ── Discovery runs ────────────────────────────────────────────────────────────
 

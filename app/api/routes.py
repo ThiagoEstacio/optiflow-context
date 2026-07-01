@@ -164,6 +164,88 @@ async def list_templates(session: AsyncSession = Depends(get_session)):
     return [dict(r._mapping) for r in rows]
 
 
+# ── Hierarchy & Context ───────────────────────────────────────────────────────
+
+
+@router.get("/assets/{asset_id}/tags")
+async def list_asset_tags(asset_id: str, session: AsyncSession = Depends(get_session)):
+    """Returns the tag list for an asset with metadata derived from the tag registry."""
+    await _sync_asset_context_from_historian(session)
+    row = await session.execute(
+        text("SELECT tags FROM asset_context WHERE asset_id = :id"), {"id": asset_id}
+    )
+    r = row.first()
+    if not r:
+        raise HTTPException(404, f"Asset not found: {asset_id}")
+    tags = r.tags if isinstance(r.tags, list) else json.loads(r.tags or "[]")
+    return {"asset_id": asset_id, "tags": [_tag_meta(t, asset_id) for t in tags]}
+
+
+@router.get("/context/{asset_id}")
+async def get_asset_context(asset_id: str, session: AsyncSession = Depends(get_session)):
+    """Full context payload for an asset — type, role, tags, site, area, system."""
+    await _sync_asset_context_from_historian(session)
+    row = await session.execute(
+        text("""
+            SELECT asset_id, asset_type, functional_role, tags, confidence, last_seen
+            FROM asset_context WHERE asset_id = :id
+        """),
+        {"id": asset_id},
+    )
+    r = row.first()
+    if not r:
+        raise HTTPException(404, f"Asset not found: {asset_id}")
+    ctx = _asset_context_from_row(r._mapping)
+    site, area, system = _resolve_location(asset_id)
+    return {
+        "asset_id": ctx.asset_id,
+        "asset_type": ctx.asset_type,
+        "functional_role": ctx.functional_role,
+        "tags": ctx.tags,
+        "confidence": ctx.confidence,
+        "last_seen": ctx.last_seen,
+        "site": site,
+        "area": area,
+        "system": system,
+    }
+
+
+@router.get("/hierarchy")
+async def get_hierarchy(session: AsyncSession = Depends(get_session)):
+    """Returns all assets grouped by site → area → system (ISA-95 inspired)."""
+    await _sync_asset_context_from_historian(session)
+    rows = await session.execute(
+        text("""
+            SELECT asset_id, asset_type, functional_role, tags, confidence, last_seen
+            FROM asset_context ORDER BY asset_id
+        """)
+    )
+    assets = [_asset_context_from_row(r._mapping) for r in rows]
+
+    tree: dict = {}
+    for a in assets:
+        site, area, system = _resolve_location(a.asset_id)
+        tree.setdefault(site, {}).setdefault(area, {}).setdefault(system, []).append({
+            "asset_id": a.asset_id,
+            "asset_type": a.asset_type,
+            "functional_role": a.functional_role,
+            "tags": a.tags,
+            "confidence": a.confidence,
+            "last_seen": a.last_seen.isoformat() if hasattr(a.last_seen, "isoformat") else str(a.last_seen),
+        })
+
+    result = []
+    for site, areas in sorted(tree.items()):
+        area_list = []
+        for area, systems in sorted(areas.items()):
+            sys_list = []
+            for system, asset_list in sorted(systems.items()):
+                sys_list.append({"system": system, "assets": asset_list})
+            area_list.append({"area": area, "systems": sys_list})
+        result.append({"site": site, "areas": area_list})
+    return result
+
+
 # ── Discovery ─────────────────────────────────────────────────────────────────
 
 @router.post("/discover", response_model=DiscoveryResult)
@@ -276,3 +358,33 @@ def _asset_context_from_row(row) -> AssetContext:
         confidence=float(row["confidence"]),
         last_seen=row["last_seen"],
     )
+
+
+def _resolve_location(asset_id: str) -> tuple[str, str, str]:
+    """Derive site / area / system from asset_id naming convention."""
+    if asset_id.startswith("VRP-SAO-CRM-") or asset_id.startswith("CRAT-SAO-CARMO"):
+        return "SAO", "SAO-CARMO", "PRESSURE_NETWORK"
+    if asset_id.startswith("RES-SAO-NORTE"):
+        return "SAO", "SAO-NORTE", "RESERVOIR_NETWORK"
+    parts = asset_id.split("-")
+    site = parts[1] if len(parts) > 1 else "UNKNOWN"
+    area = "-".join(parts[1:3]) if len(parts) > 2 else site
+    return site, area, "PROCESS"
+
+
+_TAG_METADATA: dict[str, dict] = {
+    "pm":  {"name": "Pressão Montante",    "unit": "mca",  "data_type": "float", "criticality": "high"},
+    "pj":  {"name": "Pressão Jusante",     "unit": "mca",  "data_type": "float", "criticality": "high"},
+    "sp":  {"name": "Setpoint",            "unit": "mca",  "data_type": "float", "criticality": "high"},
+    "pos": {"name": "Posição da Válvula",  "unit": "%",    "data_type": "float", "criticality": "medium"},
+    "vz":  {"name": "Vazão",               "unit": "L/s",  "data_type": "float", "criticality": "medium"},
+    "h":   {"name": "Nível do Reservatório","unit": "m",   "data_type": "float", "criticality": "high"},
+    "q_in":  {"name": "Vazão de Entrada",  "unit": "L/s",  "data_type": "float", "criticality": "medium"},
+    "q_out": {"name": "Vazão de Saída",    "unit": "L/s",  "data_type": "float", "criticality": "medium"},
+    "bombas":{"name": "Bombas Ligadas",    "unit": "count","data_type": "int",   "criticality": "high"},
+}
+
+
+def _tag_meta(tag_id: str, asset_id: str) -> dict:
+    meta = _TAG_METADATA.get(tag_id, {"name": tag_id, "unit": "", "data_type": "float", "criticality": "low"})
+    return {"tag_id": tag_id, "asset_id": asset_id, **meta}
